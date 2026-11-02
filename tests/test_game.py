@@ -99,6 +99,78 @@ class TestMysteryIsland(unittest.TestCase):
         self.assertEqual(self.player["energy"], 4)
         self.assertEqual(self.player["location"], "Jungle")
 
+    def test_insufficient_energy_rejects_dangerous_route(self):
+        move_player(self.player, "Jungle")
+        collect_item(self.player)
+        self.player["energy"] = 1
+
+        success, message = move_player(
+            self.player, "Cave", "dangerous"
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["energy"], 1)
+        self.assertEqual(self.player["location"], "Jungle")
+        self.assertFalse(self.player["game_over"])
+
+    def test_cave_to_bridge_costs_one_energy(self):
+        self.prepare_player_for_cave()
+        collect_item(self.player, "careful")
+
+        success, message = move_player(
+            self.player, "Old Bridge"
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(self.player["location"], "Old Bridge")
+        self.assertEqual(self.player["energy"], 2)
+
+    def test_cannot_cross_bridge_without_rope(self):
+        self.player["location"] = "Old Bridge"
+        self.player["inventory"] = ["Lantern"]
+
+        success, message = move_player(
+            self.player, "Lighthouse", "careful"
+        )
+
+        self.assertFalse(success)
+        self.assertIn("rope", message.lower())
+        self.assertEqual(self.player["location"], "Old Bridge")
+        self.assertEqual(self.player["energy"], 5)
+
+    def test_careful_bridge_crossing_costs_one_energy(self):
+        self.prepare_player_for_bridge()
+
+        success, message = move_player(
+            self.player, "Lighthouse", "careful"
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(self.player["location"], "Lighthouse")
+        self.assertEqual(self.player["energy"], 1)
+
+    def test_invalid_bridge_choice_does_not_cost_energy(self):
+        self.prepare_player_for_bridge()
+        energy_before = self.player["energy"]
+
+        success, message = move_player(
+            self.player, "Lighthouse", "invalid"
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["energy"], energy_before)
+        self.assertEqual(self.player["location"], "Old Bridge")
+
+    def test_cannot_move_beyond_lighthouse(self):
+        self.player["location"] = "Lighthouse"
+
+        success, message = move_player(
+            self.player, "Beach"
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["location"], "Lighthouse")
+
     # INVENTORY TESTS
 
     def test_collect_rope(self):
@@ -164,6 +236,32 @@ class TestMysteryIsland(unittest.TestCase):
         self.assertTrue(success)
         self.assertEqual(self.player["energy"], energy_before - 1)
 
+    def test_invalid_cave_search_does_not_cost_energy(self):
+        self.prepare_player_for_cave()
+        energy_before = self.player["energy"]
+
+        success, message = collect_item(
+            self.player, "invalid"
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["energy"], energy_before)
+        self.assertNotIn("Lantern", self.player["inventory"])
+
+    def test_rushed_search_using_last_energy_causes_loss(self):
+        self.prepare_player_for_cave()
+        self.player["energy"] = 1
+
+        success, message = collect_item(
+            self.player, "rushed"
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(self.player["energy"], 0)
+        self.assertTrue(self.player["game_over"])
+        self.assertFalse(self.player["won"])
+        self.assertIn("Lantern", self.player["inventory"])
+
     # ENERGY MANAGEMENT TESTS
 
     def test_spend_energy(self):
@@ -201,7 +299,6 @@ class TestMysteryIsland(unittest.TestCase):
 
     def test_rushed_bridge_crossing_can_cause_loss(self):
         self.prepare_player_for_bridge()
-
         self.player["energy"] = 2
 
         success, message = move_player(
@@ -214,6 +311,35 @@ class TestMysteryIsland(unittest.TestCase):
         self.assertTrue(self.player["game_over"])
         self.assertFalse(self.player["won"])
 
+    # GAME-OVER PROTECTION TESTS
+
+    def test_cannot_move_after_game_over(self):
+        spend_energy(self.player, 5)
+
+        success, message = move_player(
+            self.player, "Jungle"
+        )
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["location"], "Beach")
+
+    def test_cannot_collect_after_game_over(self):
+        spend_energy(self.player, 5)
+        self.player["location"] = "Jungle"
+
+        success, message = collect_item(self.player)
+
+        self.assertFalse(success)
+        self.assertNotIn("Rope", self.player["inventory"])
+
+    def test_cannot_spend_energy_after_game_over(self):
+        spend_energy(self.player, 5)
+
+        success, message = spend_energy(self.player, 1)
+
+        self.assertFalse(success)
+        self.assertEqual(self.player["energy"], 0)
+
     # VICTORY TESTS
 
     def test_cannot_activate_beacon_without_lantern(self):
@@ -224,6 +350,34 @@ class TestMysteryIsland(unittest.TestCase):
         self.assertFalse(success)
         self.assertFalse(self.player["won"])
         self.assertFalse(self.player["game_over"])
+
+    def test_cannot_activate_beacon_outside_lighthouse(self):
+        self.player["inventory"].append("Lantern")
+
+        success, message = activate_beacon(self.player)
+
+        self.assertFalse(success)
+        self.assertFalse(self.player["won"])
+
+    def test_cannot_activate_beacon_with_zero_energy(self):
+        self.player["location"] = "Lighthouse"
+        self.player["inventory"].append("Lantern")
+        self.player["energy"] = 0
+
+        success, message = activate_beacon(self.player)
+
+        self.assertFalse(success)
+        self.assertFalse(self.player["won"])
+
+    def test_cannot_activate_beacon_after_game_over(self):
+        self.player["location"] = "Lighthouse"
+        self.player["inventory"].append("Lantern")
+        spend_energy(self.player, 5)
+
+        success, message = activate_beacon(self.player)
+
+        self.assertFalse(success)
+        self.assertFalse(self.player["won"])
 
     def test_minimum_winning_path_leaves_one_energy(self):
         move_player(self.player, "Jungle")
