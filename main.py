@@ -10,14 +10,14 @@ from game import (
     collect_item,
     activate_beacon,
     LOCATION_ROUTE,
-    LOCATION_DESCRIPTIONS
+    LOCATION_DESCRIPTIONS,
 )
 
 
 # SECTION 1: Display the introduction
 
 def show_intro():
-    """Display the game title and introduction."""
+    """Display the game title, story, and instructions."""
 
     print("=" * 40)
     print("          MYSTERY ISLAND")
@@ -27,11 +27,20 @@ def show_intro():
     print("You wake up stranded on a mysterious island.")
     print("Your journey to survival begins here.")
 
+    print("\n========== HOW TO PLAY ==========")
+    print("- Explore to move between island locations.")
+    print("- Collect useful items to overcome obstacles.")
+    print("- Check your inventory and player status.")
+    print("- Choose your actions carefully to conserve energy.")
+    print("- Reach the Lighthouse and activate its beacon to escape.")
+    print("- If your energy reaches zero, your adventure ends.")
+    print("- Enter the number beside an option to select it.")
+
 
 # SECTION 2: Start a new game
 
 def start_game():
-    """Initialize the player and start the game."""
+    """Initialize a fresh player and start the adventure."""
 
     show_intro()
 
@@ -68,9 +77,11 @@ def show_menu(player):
 
     if location == "Lighthouse":
         print("5. Activate lighthouse beacon")
-        print("6. Quit")
+        print("6. Check status")
+        print("7. Quit")
     else:
-        print("5. Quit")
+        print("5. Check status")
+        print("6. Quit")
 
 
 # SECTION 4: Display inventory
@@ -78,18 +89,35 @@ def show_menu(player):
 def display_inventory(player):
     """Display all collected items."""
 
-    inventory = player["inventory"]
-
     print("\n========== INVENTORY ==========")
 
-    if not inventory:
+    if not player["inventory"]:
         print("Your inventory is empty.")
     else:
-        for item in inventory:
+        for item in player["inventory"]:
             print(f"- {item}")
 
 
-# SECTION 5: Handle exploration decisions
+# SECTION 5: Display player status
+
+def display_status(player):
+    """Display the player's current game progress."""
+
+    print("\n========== PLAYER STATUS ==========")
+    print(f"Name: {player['name']}")
+    print(f"Location: {player['location']}")
+    print(f"Energy: {player['energy']}/5")
+
+    print("Inventory:")
+
+    if player["inventory"]:
+        for item in player["inventory"]:
+            print(f"- {item}")
+    else:
+        print("- Empty")
+
+
+# SECTION 6: Handle exploration decisions
 
 def explore_location(player):
     """Handle movement and location-specific travel decisions."""
@@ -133,11 +161,7 @@ def explore_location(player):
             print("\nInvalid crossing choice. No energy was lost.")
             return
 
-    success, message = move_player(
-        player,
-        destination,
-        choice
-    )
+    success, message = move_player(player, destination, choice)
 
     print(f"\n{message}")
 
@@ -145,7 +169,7 @@ def explore_location(player):
         print(LOCATION_DESCRIPTIONS[player["location"]])
 
 
-# SECTION 6: Handle item collection
+# SECTION 7: Handle item collection
 
 def handle_collection(player):
     """Handle collecting items and searching the cave."""
@@ -173,17 +197,17 @@ def handle_collection(player):
     print(f"\n{message}")
 
 
-# SECTION 7: Handle player actions
+# SECTION 8: Handle player actions
 
 def handle_choice(player, choice):
     """Process the player's selected menu option."""
+
+    location = player["location"]
 
     if choice == "1":
         explore_location(player)
 
     elif choice == "2":
-        location = player["location"]
-
         print("\nYou examine your surroundings.")
         print(LOCATION_DESCRIPTIONS[location])
 
@@ -199,16 +223,22 @@ def handle_choice(player, choice):
     elif choice == "4":
         display_inventory(player)
 
-    elif choice == "5" and player["location"] == "Lighthouse":
+    elif choice == "5" and location == "Lighthouse":
         success, message = activate_beacon(player)
         print(f"\n{message}")
 
     elif choice == "5":
+        display_status(player)
+
+    elif choice == "6" and location == "Lighthouse":
+        display_status(player)
+
+    elif choice == "6":
         print(f"\nGoodbye, {player['name']}.")
         print("Your adventure ends here.")
         player["game_over"] = True
 
-    elif choice == "6" and player["location"] == "Lighthouse":
+    elif choice == "7" and location == "Lighthouse":
         print(f"\nGoodbye, {player['name']}.")
         print("Your adventure ends here.")
         player["game_over"] = True
@@ -217,12 +247,10 @@ def handle_choice(player, choice):
         print("\nInvalid choice. Please select an available menu option.")
 
 
-# SECTION 8: Main game loop
+# SECTION 9: Run one adventure
 
-def main():
-    """Run the main game application."""
-
-    player = start_game()
+def run_game(player):
+    """Continue the current adventure until it ends."""
 
     while not player["game_over"]:
         show_menu(player)
@@ -233,13 +261,47 @@ def main():
 
     if player["won"]:
         print("\nThank you for completing Mystery Island!")
+
     elif player["energy"] == 0:
         print("\nYou ran out of energy. Your adventure has ended.")
+
     else:
         print("\nThank you for playing Mystery Island!")
 
 
-# SECTION 9: Application entry point
+# SECTION 10: Ask whether the player wants to replay
+
+def ask_to_replay():
+    """Ask the player whether to start another adventure."""
+
+    while True:
+        answer = input("\nWould you like to play again? (y/n): ").strip().lower()
+
+        if answer in ("y", "yes"):
+            return True
+
+        if answer in ("n", "no"):
+            return False
+
+        print("Invalid response. Please enter y or n.")
+
+
+# SECTION 11: Main application loop
+
+def main():
+    """Run the game and support multiple fresh adventures."""
+
+    while True:
+        player = start_game()
+
+        run_game(player)
+
+        if not ask_to_replay():
+            print("\nThank you for playing Mystery Island Adventure!")
+            break
+
+
+# SECTION 12: Application entry point
 
 if __name__ == "__main__":
     main()
