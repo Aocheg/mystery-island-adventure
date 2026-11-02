@@ -239,4 +239,3 @@ Possible future extensions include:
 Developed as a Python programming and software engineering project.
 
 GitHub repository: https://github.com/Aocheg/mystery-island-adventure
-
